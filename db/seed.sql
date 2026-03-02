@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS bonus_transactions (
 CREATE INDEX IF NOT EXISTS bonus_transactions_user_id_created_at_idx
   ON bonus_transactions (user_id, created_at);
 
-CREATE UNIQUE INDEX IF NOT EXISTS bonus_transactions_request_id_uq
-  ON bonus_transactions (request_id);
+CREATE UNIQUE INDEX IF NOT EXISTS bonus_transactions_user_request_uq
+  ON bonus_transactions (user_id, request_id);
 
 INSERT INTO users (id, name, created_at, updated_at)
 VALUES

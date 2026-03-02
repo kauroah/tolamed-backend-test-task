@@ -1,48 +1,41 @@
-import { NextFunction, Request, Response } from 'express';
+import { Request, Response } from 'express';
+import { BonusService } from '../services/bonus.service';
 
-import { bonusQueue } from '../queue';
-import { spendBonus } from '../services/bonus.service';
-
-type AppError = Error & { status?: number };
-
-function createAppError(message: string, status: number): AppError {
-  const error = new Error(message) as AppError;
-  error.status = status;
-  return error;
-}
-
-export async function spendUserBonus(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
+export const spendUserBonus = async (req: Request, res: Response) => {
   try {
-    const amount = Number(req.body?.amount);
+    const { amount } = req.body as { amount: number };
+    const userId = req.params.id;
 
-    if (!Number.isInteger(amount) || amount <= 0) {
-      throw createAppError('amount must be a positive integer', 400);
+    const requestId =
+      req.header('Idempotency-Key') ??
+      req.header('idempotency-key') ??
+      (req.body as any).requestId ??
+      (req.body as any).request_id;
+
+    if (!requestId) {
+      return res.status(400).json({ message: 'Missing Idempotency-Key' });
     }
 
-    await spendBonus(req.params.id, amount);
+    const result = await BonusService.spendBonus(userId, amount, requestId);
 
-    res.json({ success: true });
-  } catch (error) {
-    next(error);
+    return res.status(200).json(result);
+  } catch (err: any) {
+    if (err?.message === 'Not enough bonus') {
+      return res.status(400).json({ message: err.message });
+    }
+
+    return res.status(500).json({ message: err?.message ?? 'Internal error' });
   }
-}
+};
 
-export async function enqueueExpireAccrualsJob(
+export const enqueueExpireAccrualsJob = async (
   _req: Request,
   res: Response,
-  next: NextFunction,
-): Promise<void> {
+) => {
   try {
-    await bonusQueue.add('expireAccruals', {
-      createdAt: new Date().toISOString(),
-    });
-
-    res.json({ queued: true });
-  } catch (error) {
-    next(error);
+    const result = await BonusService.processExpiredBonuses();
+    return res.status(200).json(result);
+  } catch (err: any) {
+    return res.status(500).json({ message: err?.message ?? 'Internal error' });
   }
-}
+};

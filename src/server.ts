@@ -6,12 +6,14 @@ import { startExpireAccrualsWorker } from './queue';
 
 const port = Number(process.env.PORT || 3000);
 
-async function startServer(): Promise<void> {
+export async function startServer(): Promise<void> {
   try {
     await sequelize.authenticate();
     console.log('PostgreSQL connected');
 
-    startExpireAccrualsWorker();
+    if (process.env.NODE_ENV !== 'test') {
+      startExpireAccrualsWorker();
+    }
 
     app.listen(port, () => {
       console.log(`API started on port ${port}`);
@@ -22,4 +24,8 @@ async function startServer(): Promise<void> {
   }
 }
 
-void startServer();
+if (process.env.NODE_ENV !== 'test') {
+  void startServer();
+}
+
+export { app };
